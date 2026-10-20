@@ -1,0 +1,52 @@
+services:
+  n8n:
+    image: n8nio/n8n:latest   # pin to the exact version that works for you after first run
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5678:5678"   # editor reachable only via SSH tunnel; the internet only sees Caddy's allow-list
+    environment:
+      - TZ=${TZ:-Asia/Kolkata}
+      - GENERIC_TIMEZONE=${TZ:-Asia/Kolkata}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - N8N_HOST=${N8N_HOST}
+      - N8N_PROTOCOL=https
+      - N8N_PROXY_HOPS=1
+      - WEBHOOK_URL=https://${N8N_HOST}/
+      - N8N_EDITOR_BASE_URL=https://${N8N_HOST}/
+      - N8N_SECURE_COOKIE=false
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false     # workflows read the vars below via $env
+      - N8N_DIAGNOSTICS_ENABLED=false
+      - ALLOWED_TELEGRAM_IDS=${ALLOWED_TELEGRAM_IDS}
+      - BROWSER_API_KEY=${BROWSER_API_KEY}
+      - BROWSER_APPROVAL_TOKEN=${BROWSER_APPROVAL_TOKEN}
+    volumes:
+      - ./data/n8n:/home/node/.n8n
+      - ./workflows:/workflows:ro
+    depends_on:
+      - browser
+
+  browser:
+    build: ./browser-service
+    restart: unless-stopped
+    environment:
+      - BROWSER_API_KEY=${BROWSER_API_KEY}
+      - BROWSER_APPROVAL_TOKEN=${BROWSER_APPROVAL_TOKEN}
+      - BROWSER_HEADLESS=true
+    volumes:
+      - ./data/browser_profile:/data/profile
+    shm_size: "1gb"
+    # no published ports: only n8n can reach it, over the internal network
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - N8N_HOST=${N8N_HOST}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./data/caddy:/data
+    depends_on:
+      - n8n

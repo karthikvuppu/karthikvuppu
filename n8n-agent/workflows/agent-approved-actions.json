@@ -1,0 +1,570 @@
+{
+  "id": "AgentGated01",
+  "name": "Agent - Approved Actions",
+  "active": false,
+  "nodes": [
+    {
+      "id": "83888cd2-6171-5fd1-a0b0-736b5d3b2bd1",
+      "name": "When Called",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {
+        "inputSource": "workflowInputs",
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "action",
+              "type": "string"
+            },
+            {
+              "name": "to",
+              "type": "string"
+            },
+            {
+              "name": "subject",
+              "type": "string"
+            },
+            {
+              "name": "body",
+              "type": "string"
+            },
+            {
+              "name": "file_id",
+              "type": "string"
+            },
+            {
+              "name": "email",
+              "type": "string"
+            },
+            {
+              "name": "role",
+              "type": "string"
+            },
+            {
+              "name": "target",
+              "type": "string"
+            },
+            {
+              "name": "what_it_does",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "748afeb8-0b7c-553e-a900-e5b24464926e",
+      "name": "Ask Owner",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        260,
+        300
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendAndWait",
+        "chatId": "={{ $env.ALLOWED_TELEGRAM_IDS.split(',')[0].trim() }}",
+        "subject": "Approval needed",
+        "message": "={{ (() => { const i = $('When Called').first().json; const clean = s => String(s ?? '').replace(/[_*`\\[\\]]/g, ' ').slice(0, 1500); const lines = ['Action: ' + clean(i.action)]; ['what_it_does','to','subject','body','file_id','email','role','target'].forEach(k => { if (i[k]) lines.push(k + ': ' + clean(i[k])); }); return lines.join('\\n'); })() }}",
+        "responseType": "approval",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double",
+            "approveLabel": "✅ Approve",
+            "disapproveLabel": "❌ Decline"
+          }
+        },
+        "options": {
+          "appendAttribution": false,
+          "limitWaitTime": {
+            "values": {
+              "limitType": "afterTimeInterval",
+              "resumeAmount": 10,
+              "resumeUnit": "minutes"
+            }
+          }
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "agentTelegram01",
+          "name": "Agent Telegram"
+        }
+      }
+    },
+    {
+      "id": "362741ea-4348-5589-8ba3-e3d9445b13c6",
+      "name": "Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        520,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "8a97c657-9b41-5ea1-82bd-00dbd9d3e324",
+              "leftValue": "={{ $json.data?.approved === true }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "98889ca9-4193-5703-ab3c-6db30e225f36",
+      "name": "Declined",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        780,
+        460
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c7d71d6a-3a32-54ef-8043-cd773fa1d346",
+              "name": "result",
+              "value": "DECLINED or timed out. The owner did NOT approve this action. Do not retry or work around it; tell the owner it was not done.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "aa8ba7a8-0fa3-5b3e-9226-4967336a149f",
+      "name": "Which Action",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        780,
+        240
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "9ebd20d1-e879-5ffd-b468-811e09e3c2ef",
+                    "leftValue": "={{ $('When Called').first().json.action }}",
+                    "rightValue": "send_email",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "send_email"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "5100d02b-fa17-52e3-8f46-3f205ceceb3d",
+                    "leftValue": "={{ $('When Called').first().json.action }}",
+                    "rightValue": "share_file",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "share_file"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "86791875-3ea8-5113-8ff8-6efad4aebf73",
+                    "leftValue": "={{ $('When Called').first().json.action }}",
+                    "rightValue": "trash_file",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "trash_file"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "2cc00092-5883-5598-9d2d-cf4034b11ec8",
+                    "leftValue": "={{ $('When Called').first().json.action }}",
+                    "rightValue": "browser_submit",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "browser_submit"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      }
+    },
+    {
+      "id": "41546fba-95e0-5943-a859-1358de32107f",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1060,
+        40
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $('When Called').first().json.to }}",
+        "subject": "={{ $('When Called').first().json.subject }}",
+        "emailType": "text",
+        "message": "={{ $('When Called').first().json.body }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "agentGmail01",
+          "name": "Agent Gmail"
+        }
+      }
+    },
+    {
+      "id": "18cdada9-5105-574e-9668-8a8e1af3bbd0",
+      "name": "Share File",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1060,
+        200
+      ],
+      "parameters": {
+        "resource": "file",
+        "operation": "share",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $('When Called').first().json.file_id }}",
+          "mode": "id"
+        },
+        "permissionsUi": {
+          "permissionsValues": {
+            "role": "={{ $('When Called').first().json.role }}",
+            "type": "user",
+            "emailAddress": "={{ $('When Called').first().json.email }}"
+          }
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "agentDrive01",
+          "name": "Agent Drive"
+        }
+      }
+    },
+    {
+      "id": "f30c53b6-75e6-5da1-8142-4b704495a4c8",
+      "name": "Trash File",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1060,
+        360
+      ],
+      "parameters": {
+        "resource": "file",
+        "operation": "deleteFile",
+        "fileId": {
+          "__rl": true,
+          "value": "={{ $('When Called').first().json.file_id }}",
+          "mode": "id"
+        },
+        "options": {
+          "deletePermanently": false
+        }
+      },
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "agentDrive01",
+          "name": "Agent Drive"
+        }
+      }
+    },
+    {
+      "id": "8a06987d-865a-5fec-b582-eb90cdba3ef1",
+      "name": "Browser Submit",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1060,
+        520
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://browser:8100/submit",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.BROWSER_API_KEY }}"
+            },
+            {
+              "name": "X-Approval-Token",
+              "value": "={{ $env.BROWSER_APPROVAL_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ target: $('When Called').first().json.target, what_it_does: $('When Called').first().json.what_it_does }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "81402a60-af8b-5a15-b11d-4de0360c656a",
+      "name": "Unknown Action",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1060,
+        680
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "28bbda41-83f6-5d92-a24b-0d1314558a76",
+              "name": "result",
+              "value": "Unknown action. Allowed: send_email, share_file, trash_file, browser_submit.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "ca9440c4-d0bd-5e6c-9146-e318816b7d55",
+      "name": "Result",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1340,
+        280
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "bdb85ad9-2344-5c49-aeff-e9e4684fc39a",
+              "name": "result",
+              "value": "={{ 'Done: ' + JSON.stringify($json).slice(0, 400) }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "When Called": {
+      "main": [
+        [
+          {
+            "node": "Ask Owner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask Owner": {
+      "main": [
+        [
+          {
+            "node": "Approved?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approved?": {
+      "main": [
+        [
+          {
+            "node": "Which Action",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Declined",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Which Action": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Share File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Trash File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Browser Submit",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Unknown Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email": {
+      "main": [
+        [
+          {
+            "node": "Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Share File": {
+      "main": [
+        [
+          {
+            "node": "Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trash File": {
+      "main": [
+        [
+          {
+            "node": "Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Browser Submit": {
+      "main": [
+        [
+          {
+            "node": "Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

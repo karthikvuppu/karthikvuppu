@@ -1,0 +1,11 @@
+# Automatic HTTPS (Let's Encrypt). Only the paths Telegram / Google / approval buttons need are public.
+# The n8n editor is NOT exposed; reach it with: ssh -L 5678:localhost:5678 <user>@<server>  then open http://localhost:5678
+{$N8N_HOST} {
+	@public path /webhook/* /webhook-waiting/* /form-waiting/* /rest/oauth2-credential/callback
+	handle @public {
+		reverse_proxy n8n:5678
+	}
+	handle {
+		respond "Not found" 404
+	}
+}
